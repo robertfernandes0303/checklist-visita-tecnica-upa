@@ -310,7 +310,7 @@ def tela_cabecalho():
                                   format="DD/MM/YYYY")
     S.responsavel = st.text_input("Responsável pela visita *", value=S.responsavel)
     S.acompanhante = st.text_input("Nome de quem acompanhou (unidade)", value=S.acompanhante)
-    S.edital = st.text_input("Edital / Processo", value=S.edital)
+    S.edital = st.text_input("Edital / Processo (se houver)", value=S.edital)
 
     if st.button("Iniciar visita", type="primary", use_container_width=True):
         if not S.get("abertas_ok", True):
