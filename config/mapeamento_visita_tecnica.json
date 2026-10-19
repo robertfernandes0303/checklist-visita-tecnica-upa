@@ -1,0 +1,7 @@
+{
+  "_comentario": "Checklist de Visita Técnica - UPA. O app grava nas abas UPA_* da planilha 'Checklist_visita_tecnica_UPA' (arquivo PRÓPRIO, dentro da pasta 'pasta_planilha', compartilhada com a conta de serviço). Se 'planilha_id' for COLOQUE_..., o app localiza a planilha pelo nome na pasta. Fotos vão para 'pasta_evidencias' via Apps Script ([upload_drive] nos Secrets). Sem credenciais Google o app grava local, em modo de teste.",
+  "nome_planilha": "Checklist_visita_tecnica_UPA",
+  "planilha_id": "10xj7fxtOBnZuhZnBIzHCMhOv-4eXInSKrpW0J7i5aZ0",
+  "pasta_planilha": "1wgwH6qqFoIr0zIFwRTSm54DlYN6vuGeH",
+  "pasta_evidencias": "1tnPMXgrmLW5pgmf4GGMXRAFuj5Op7e_t"
+}
