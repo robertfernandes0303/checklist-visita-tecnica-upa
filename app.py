@@ -307,16 +307,15 @@ def tela_cabecalho():
     S.uf = c2.selectbox("UF", sc.UFS, index=sc.UFS.index(S.uf) if S.uf in sc.UFS else None, placeholder="UF") or ""
     S.data_visita = st.date_input("Data da visita *", value=S.data_visita, max_value=sc.agora_brasilia().date(),
                                   format="DD/MM/YYYY")
-    S.horario = st.text_input("Horário da visita", value=S.horario, placeholder="Ex.: 09:00 às 12:00")
-    S.responsavel = st.text_input("Visitantes (São Lucas) *", value=S.responsavel, placeholder="Nomes de quem realiza a visita")
-    S.acompanhante = st.text_input("Acompanhante / função (unidade)", value=S.acompanhante)
+    S.responsavel = st.text_input("Responsável pela visita *", value=S.responsavel)
+    S.acompanhante = st.text_input("Nome de quem acompanhou (unidade)", value=S.acompanhante)
     S.edital = st.text_input("Edital / Processo", value=S.edital)
 
     if st.button("Iniciar visita", type="primary", use_container_width=True):
         if not S.get("abertas_ok", True):
             st.warning("Aguarde a consulta das visitas em aberto antes de iniciar uma nova visita.")
         elif not (S.hospital.strip() and S.responsavel.strip()):
-            st.warning("Informe o nome da unidade e os visitantes.")
+            st.warning("Informe o nome da unidade e o responsável pela visita.")
         else:
             S.hospital, S.responsavel = S.hospital.strip(), S.responsavel.strip()
             achados = sb.listar_rascunhos_hospital(S.hospital)
@@ -650,7 +649,7 @@ def _montar_envio():
                            "Seção": g["nome"], "Impacto na proposta e providências São Lucas": txt})
     visita = {
         "Código da Visita": S.codigo, "Unidade": S.hospital, "Cidade": S.cidade, "UF": S.uf,
-        "Edital / Processo": S.edital, "Data da Visita": data_txt, "Horário": S.horario,
+        "Edital / Processo": S.edital, "Data da Visita": data_txt, "Horário": S.horario or str(S.inicio or "")[11:16],
         "Visitantes": S.responsavel, "Acompanhante / função": S.acompanhante,
         "Início do Preenchimento": S.inicio,
         "Fim do Preenchimento (Envio)": sc.agora_brasilia().strftime("%d/%m/%Y %H:%M:%S"),
