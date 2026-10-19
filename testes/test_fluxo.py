@@ -19,7 +19,7 @@ def test_fluxo_completo_incompleto():
     at.text_input[0].set_value("UPA Teste Ação").run()
     at.text_input[1].set_value("Guajará-Mirim").run()
     at.selectbox[0].set_value("RO").run()
-    at.text_input[3].set_value("Maria").run()
+    at.text_input[2].set_value("Maria").run()
     [b for b in at.button if b.label == "Iniciar visita"][0].click().run()
     assert not at.exception and at.session_state.etapa == "menu"
     cod = at.session_state.codigo
@@ -55,7 +55,7 @@ def test_retomar_por_hospital():
         "data_visita": "2026-10-08", "respostas": {"2": {"resposta": "x", "fonte": "Informado"}}}, 1)
     at = AppTest.from_file(APP, default_timeout=30).run()
     at.text_input[0].set_value("hospital sao jose").run()
-    at.text_input[3].set_value("Ana").run()
+    at.text_input[2].set_value("Ana").run()
     [b for b in at.button if b.label == "Iniciar visita"][0].click().run()
     assert at.session_state.etapa == "retomar_lista"
     [b for b in at.button if b.label == "Continuar"][0].click().run()
@@ -67,7 +67,7 @@ def test_bloqueio_erro_verificacao(monkeypatch=None):
     sb.listar_rascunhos_hospital = lambda h: sb.ERRO_VERIFICACAO_RASCUNHO
     try:
         at = AppTest.from_file(APP, default_timeout=30).run()
-        at.text_input[0].set_value("H").run(); at.text_input[3].set_value("R").run()
+        at.text_input[0].set_value("H").run(); at.text_input[2].set_value("R").run()
         [b for b in at.button if b.label == "Iniciar visita"][0].click().run()
         assert at.session_state.etapa == "bloqueio" and not at.session_state.codigo
     finally:
@@ -141,7 +141,7 @@ def test_inicio_sem_abertas_e_falha_consulta():
 
 def _iniciar(at, hospital="Hospital <b>X</b> & Cia", resp="Ana"):
     at.text_input[0].set_value(hospital).run()
-    at.text_input[3].set_value(resp).run()
+    at.text_input[2].set_value(resp).run()
     [b for b in at.button if b.label == "Iniciar visita"][0].click().run()
     assert at.session_state.etapa == "menu", [e.value for e in at.error]
 
