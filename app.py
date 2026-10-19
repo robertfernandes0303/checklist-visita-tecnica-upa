@@ -109,7 +109,7 @@ def _estado_inicial():
         "responsavel": "", "acompanhante": "", "horario": "", "solo_essenciais": False, "data_visita": sc.agora_brasilia().date(),
         "inicio": None, "respostas": {}, "anexos": {},
         "visitados": [], "concluidos": [], "grupo_atual": 0, "versao": 0, "anexos_removidos": [],
-        "impactos": {}, "contador_lin": 0,
+        "impactos": {}, "contador_lin": 0, "gen_w": 0,
         "camera_item": None, "contador_up": {}, "contador_cam": {}, "rascunhos_achados": None,
         "resultado_envio": None,
     }
@@ -155,6 +155,11 @@ def _autosave():
 
 
 
+def _k(pref, n):
+    """Chave de widget com geracao: ao absorver dados de outra sessao a geracao sobe e os campos nascem de novo."""
+    return f"{pref}{n}_g{S.gen_w}"
+
+
 def _absorver_mesclado():
     """Se outra sessao gravou a mesma visita, incorpora o que veio de la (nada se perde)."""
     if not S.codigo or S.etapa in ("cabecalho", "bloqueio", "retomar_lista", "confirmacao"):
@@ -166,15 +171,9 @@ def _absorver_mesclado():
     novos_anexos = {int(k): v for k, v in (m.get("anexos") or {}).items()}
     if novos == S.respostas and novos_anexos == S.anexos:
         return                                    # nada novo de fora (so reordenacao)
-    for num, v in novos.items():
-        if S.respostas.get(num) != v:
-            for pref in ("fonte_", "resposta_", "obs_"):
-                st.session_state.pop(f"{pref}{num}", None)
+    S.gen_w += 1                                  # novas chaves de widget: campos refletem os dados mesclados
     S.respostas = novos
     S.impactos = {int(k): v for k, v in (m.get("impactos") or {}).items()}
-    for k in list(st.session_state.keys()):
-        if str(k).startswith("impsec_"):
-            del st.session_state[k]
     S.anexos = novos_anexos
     S.anexos_removidos = list(m.get("anexos_removidos") or [])
     S.visitados = list(m.get("grupos_visitados") or S.visitados)
@@ -416,7 +415,7 @@ def tela_menu():
 # ---------------------------------------------------------------------------
 def _cb_resposta(num):
     r = S.respostas.setdefault(num, {})
-    r["resposta"] = st.session_state.get(f"resposta_{num}", "")
+    r["resposta"] = st.session_state.get(_k("resposta_", num), "")
     agora = sc.agora_brasilia().strftime("%d/%m/%Y %H:%M:%S")
     r["atualizado_em"] = agora
     r.setdefault("respondido_em", agora)
@@ -425,7 +424,7 @@ def _cb_resposta(num):
 
 def _cb_fonte(num):
     r = S.respostas.setdefault(num, {})
-    r["fonte"] = st.session_state.get(f"fonte_{num}")
+    r["fonte"] = st.session_state.get(_k("fonte_", num))
     agora = sc.agora_brasilia().strftime("%d/%m/%Y %H:%M:%S")
     r["atualizado_em"] = agora
     r.setdefault("respondido_em", agora)
@@ -434,13 +433,13 @@ def _cb_fonte(num):
 
 def _cb_obs(num):
     r = S.respostas.setdefault(num, {})
-    r["obs"] = st.session_state.get(f"obs_{num}", "")
+    r["obs"] = st.session_state.get(_k("obs_", num), "")
     r["atualizado_em"] = sc.agora_brasilia().strftime("%d/%m/%Y %H:%M:%S")
     _autosave()
 
 
 def _cb_impacto(gi):
-    S.impactos[gi] = st.session_state.get(f"impsec_{gi}", "")
+    S.impactos[gi] = st.session_state.get(_k("impsec_", gi), "")
     _autosave()
 
 
@@ -470,7 +469,7 @@ def _bloco_observacao(item):
     st.markdown(texto_badge, unsafe_allow_html=True)
 
     with st.expander("📝 Observação e evidências"):
-        st.text_area("Observação", value=r.get("obs", ""), key=f"obs_{num}", height=90,
+        st.text_area("Observação", value=r.get("obs", ""), key=_k("obs_", num), height=90,
                      on_change=_cb_obs, args=(num,), placeholder="Detalhes, quem informou, documento visto…")
 
         restantes = sc.MAX_ANEXOS_POR_ITEM - len(anexos)
@@ -527,12 +526,12 @@ def _card_item(item):
     foco = "🔴 Essencial" if item["foco"] == sc.ESSENCIAL else "⚪ Complementar"
     st.markdown(f"**{item['ref']}** {html.escape(item['texto'])}")
     st.caption(foco + (f" · unidade: {item['unidade']}" if item.get("unidade") else ""))
-    st.text_input("Resposta / valor", value=r.get("resposta", ""), key=f"resposta_{num}",
+    st.text_input("Resposta / valor", value=r.get("resposta", ""), key=_k("resposta_", num),
                   on_change=_cb_resposta, args=(num,),
                   placeholder=(f"Informe o valor ({item['unidade']})" if item.get("unidade") else "Informe a resposta"))
     atual = r.get("fonte")
     st.radio("Fonte", sc.OPCOES_FONTE, index=sc.OPCOES_FONTE.index(atual) if atual in sc.OPCOES_FONTE else None,
-             horizontal=True, key=f"fonte_{num}", on_change=_cb_fonte, args=(num,),
+             horizontal=True, key=_k("fonte_", num), on_change=_cb_fonte, args=(num,),
              format_func=lambda o: f"{ICONE_FONTE[o]} {o}")
     if _verificado(r):
         st.caption("✅ Verificado")
@@ -552,7 +551,7 @@ def tela_grupo():
     for item in itens:
         _card_item(item)
     st.text_area("Impacto na proposta e providências São Lucas (desta seção)", value=S.impactos.get(gi, ""),
-                 key=f"impsec_{gi}", height=110, on_change=_cb_impacto, args=(gi,),
+                 key=_k("impsec_", gi), height=110, on_change=_cb_impacto, args=(gi,),
                  placeholder="Como o que foi visto afeta a proposta; providências a tomar…")
     _camera_traseira()
     faltam = [i["ref"] for i in itens if not _respondido(S.respostas.get(i["num"]))]
