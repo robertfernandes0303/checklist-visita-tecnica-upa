@@ -225,7 +225,7 @@ def _iniciar_nova():
 # ---------------------------------------------------------------------------
 # Cabecalho
 # ---------------------------------------------------------------------------
-VERSAO_APP = "UPA 1.0"
+VERSAO_APP = "1.0 UPA"
 ANEXOS_ESPERADOS = 20
 
 
@@ -236,6 +236,8 @@ def _topo():
     st.caption(f"v{VERSAO_APP} · até {sc.MAX_ANEXOS_POR_ITEM} anexos por item")
     if S.get("avisou_mescla"):
         st.info("Outra pessoa ou aba também salvou esta visita. Os dados foram reunidos e nada foi perdido.")
+    if not sb.modo_google():
+        st.warning("Modo de teste: as respostas NÃO estão sendo gravadas na planilha do Google (credenciais não configuradas).")
     if sc.MAX_ANEXOS_POR_ITEM != ANEXOS_ESPERADOS:
         st.warning("Parte do código do app está desatualizada (versão antiga em memória). "
                    "Avise o responsável para reiniciar o app (Manage app > Reboot).")
@@ -396,7 +398,9 @@ def tela_menu():
             _autosave()
             st.rerun()
     st.divider()
-    todos = len(S.concluidos) == len(sc.GRUPOS)
+    visiveis = [gi for gi, g in enumerate(sc.GRUPOS)
+                if not S.solo_essenciais or any(i["foco"] == sc.ESSENCIAL for i in g["itens"])]
+    todos = all(gi in S.concluidos for gi in visiveis)
     if st.button("Enviar visita completa", type="primary", disabled=not todos, use_container_width=True):
         S.etapa = "confirmar_envio"
         st.rerun()
@@ -404,7 +408,7 @@ def tela_menu():
         if st.button("Enviar mesmo incompleta", use_container_width=True):
             S.etapa = "confirmar_envio"
             st.rerun()
-        st.caption(f"O envio completo é liberado quando as {len(sc.GRUPOS)} seções estiverem concluídas.")
+        st.caption(f"O envio completo é liberado quando as {len(visiveis)} seções listadas estiverem concluídas.")
 
 
 # ---------------------------------------------------------------------------

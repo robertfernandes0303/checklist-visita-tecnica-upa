@@ -645,3 +645,11 @@ def apagar_rascunho(codigo):
     _ESTADO_AUTOSAVE.pop(codigo, None)
     with _TRAVA_FILA:
         _MESCLADO.pop(codigo, None)
+
+
+def modo_google():
+    """True quando as credenciais do Google estao configuradas (senao o app grava so localmente)."""
+    try:
+        return bool(_usa_google(_carregar_mapeamento()))
+    except Exception:
+        return False
