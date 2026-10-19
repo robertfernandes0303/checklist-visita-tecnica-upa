@@ -243,3 +243,22 @@ def test_upload_apps_script_mock_e_selecao():
             assert "token invalido" in str(e)
     finally:
         requests.post = orig_post
+
+
+def test_modo_rapido_libera_envio_so_com_secoes_essenciais():
+    limpar()
+    at = AppTest.from_file(APP, default_timeout=120).run()
+    _iniciar(at)
+    assert any("Modo de teste" in w.value for w in at.warning)
+    at.toggle[0].set_value(True).run()
+    ess = [gi for gi, g in enumerate(sc.GRUPOS) if any(i["foco"] == sc.ESSENCIAL for i in g["itens"])]
+    ocultas = [gi for gi in range(len(sc.GRUPOS)) if gi not in ess]
+    assert ocultas and not [b for b in at.button if b.key == f"abrir_{ocultas[0]}"]
+    for gi in ess:
+        [b for b in at.button if b.key == f"abrir_{gi}"][0].click().run()
+        for r in at.radio:
+            r.set_value("Não verificado")
+        at.run()
+        [b for b in at.button if b.label == "Concluir seção"][0].click().run()
+        assert at.session_state.etapa == "menu"
+    assert not [b for b in at.button if b.label == "Enviar visita completa"][0].disabled

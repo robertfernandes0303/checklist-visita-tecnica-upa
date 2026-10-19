@@ -83,3 +83,11 @@ def test_linha_movida_nao_sobrescreve_outra_visita(monkeypatch):
                                           "3": _r("OK", "19/10/2026 09:02:00")}), 2)
     assert [l[0] for l in aba.linhas[1:]] == ["B"]
     assert set(_lido(aba)["respostas"]) == {"2", "3"}
+
+
+def test_mescla_impactos_e_respostas_upa():
+    g = {"respostas": {"1": {"resposta": "a", "atualizado_em": "19/10/2026 10:00:00"}}, "impactos": {"0": "x", "1": "y"}}
+    n = {"respostas": {"1": {"resposta": "b", "atualizado_em": "19/10/2026 11:00:00"}, "2": {"resposta": "c"}}, "impactos": {"0": "x2"}}
+    m = sb.mesclar_dados(g, n)
+    assert m["respostas"]["1"]["resposta"] == "b" and "2" in m["respostas"]
+    assert m["impactos"] == {"0": "x2", "1": "y"}
