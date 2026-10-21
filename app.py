@@ -23,6 +23,8 @@ st.set_page_config(page_title="Visita Técnica - UPA", page_icon="🩺",
 
 CSS = """
 <style>
+:root {color-scheme: only light;}
+html, body, .stApp {color-scheme: only light;}
 :root {--azul:#003366; --vibrante:#00AEEF; --agua:#008B8B; --amarelo:#F2C94C; --laranja:#F2994A;
        --cinza:#828282; --texto:#2F3B42; --raio:16px;
        --vidro: rgba(255,255,255,.58); --vidro-borda: rgba(255,255,255,.85);
