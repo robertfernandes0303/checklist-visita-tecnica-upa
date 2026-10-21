@@ -30,7 +30,7 @@ html, body, .stApp {color-scheme: only light;}
        --vidro: rgba(255,255,255,.58); --vidro-borda: rgba(255,255,255,.85);
        --sombra: 0 6px 18px rgba(0,51,102,.10), 0 1px 3px rgba(0,51,102,.08);
        --brilho: inset 0 1px 0 rgba(255,255,255,.95), inset 0 -1px 0 rgba(0,51,102,.04);}
-.stApp {background: linear-gradient(160deg, #EAF4FA 0%, #F6FAFC 45%, #E6F3F1 100%) fixed;}
+html, body, .stApp {background-color: #EEF5F9 !important; background-image: none !important;}
 header[data-testid="stHeader"] {display: none;}
 /* Botões de anexo em português e mais claros no celular */
 [data-testid="stFileUploaderDropzone"] button [data-testid="stMarkdownContainer"] p {font-size: 0 !important;}
