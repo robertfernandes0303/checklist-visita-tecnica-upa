@@ -91,3 +91,30 @@ def test_mescla_impactos_e_respostas_upa():
     m = sb.mesclar_dados(g, n)
     assert m["respostas"]["1"]["resposta"] == "b" and "2" in m["respostas"]
     assert m["impactos"] == {"0": "x2", "1": "y"}
+
+
+def test_registrar_anexo_grava_direto_no_rascunho_sem_sessao(monkeypatch):
+    """Anexo enviado ao Drive e registrado no rascunho mesmo que a sessao do navegador tenha sumido."""
+    aba = AbaFalsa(); _preparar(aba, monkeypatch)
+    sb.salvar_rascunho("COD9", "Hosp", "Resp", _d(anexos={"1": [{"nome": "a.jpg", "id_arquivo": "A"}]}), 1)
+    novo = {"nome": "b.jpg", "id_arquivo": "B", "link": "http://x/b"}
+    assert sb.registrar_anexo_rascunho("COD9", 1, novo)
+    assert sb.registrar_anexo_rascunho("COD9", 1, novo)          # repetido: nao duplica
+    dados = _lido(aba)
+    assert [a["id_arquivo"] for a in dados["anexos"]["1"]] == ["A", "B"]
+    assert aba.linhas[1][1] == "Hosp" and aba.linhas[1][3] == "Resp"   # cabecalho preservado
+    # um autosave antigo da sessao (sem a foto nova) nao a apaga
+    sb.salvar_rascunho("COD9", "Hosp", "Resp", _d(anexos={"1": [{"nome": "a.jpg", "id_arquivo": "A"}]}), 2)
+    assert [a["id_arquivo"] for a in _lido(aba)["anexos"]["1"]] == ["A", "B"]
+
+
+def test_registrar_anexo_removido_nao_volta(monkeypatch):
+    aba = AbaFalsa(); _preparar(aba, monkeypatch)
+    sb.salvar_rascunho("COD8", "H", "R", _d(removidos=["B"]), 1)
+    sb.registrar_anexo_rascunho("COD8", 1, {"nome": "b.jpg", "id_arquivo": "B"})
+    assert not _lido(aba)["anexos"]
+
+
+def test_registrar_anexo_sem_rascunho_nao_quebra(monkeypatch):
+    aba = AbaFalsa(); _preparar(aba, monkeypatch)
+    assert sb.registrar_anexo_rascunho("NAOEXISTE", 1, {"nome": "x", "id_arquivo": "X"}) is False
