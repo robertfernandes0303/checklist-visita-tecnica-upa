@@ -396,6 +396,63 @@ def _ler_dados_linha(aba, idx, codigo):
         return {}
 
 
+def _juntar_anexo(dados, num, info):
+    """Acrescenta `info` aos anexos do item `num` em `dados` (sem duplicar, respeitando remocoes)."""
+    chave = _chave_anexo(info)
+    if chave in (dados.get("anexos_removidos") or []):
+        return False
+    lista = dados.setdefault("anexos", {}).setdefault(str(num), [])
+    if any(_chave_anexo(a) == chave for a in lista):
+        return False
+    lista.append(info)
+    return True
+
+
+def registrar_anexo_rascunho(codigo, num, info):
+    """Grava o anexo DIRETO no rascunho guardado, sem depender da sessao do navegador.
+    Assim, se a pessoa fechar o app / bloquear o celular no meio do envio da foto, o anexo
+    nao fica orfao no Drive. Nunca lanca excecao; devolve True se gravou."""
+    import time
+    from gspread.utils import rowcol_to_a1
+    try:
+        with _trava(codigo):
+            agora = agora_brasilia().strftime("%d/%m/%Y %H:%M:%S")
+            if not _usa_google(_carregar_mapeamento()):
+                caminho = _caminho_rascunho_local(codigo)
+                if not os.path.exists(caminho):
+                    return False
+                with open(caminho, encoding="utf-8") as f:
+                    d = json.load(f)
+                _juntar_anexo(d["dados"], num, info)
+                d["atualizado_em"] = agora
+                with open(caminho, "w", encoding="utf-8") as f:
+                    json.dump(d, f, ensure_ascii=False)
+                return True
+            for tentativa in range(len(ESPERAS_429) + 1):
+                try:
+                    aba = _aba_rascunho()
+                    idx = _linha_do_codigo(aba, codigo)
+                    if not idx:
+                        return False
+                    cab = (aba.get(f"A{idx}:E{idx}") or [[]])[0] + [""] * 5
+                    dados = _ler_dados_linha(aba, idx, codigo)
+                    if not isinstance(dados, dict) or not dados:
+                        return False
+                    _juntar_anexo(dados, num, info)
+                    linha = _montar_linha(codigo, cab[1], cab[3], dados, agora)
+                    aba.update(f"A{idx}:{rowcol_to_a1(idx, len(linha))}", [linha], value_input_option=RAW)
+                    _CACHE_RASC["linhas"][codigo] = (idx, time.time())
+                    return True
+                except Exception as exc:
+                    _limpar_cache_rascunho()
+                    if not _e_429(exc) or tentativa >= len(ESPERAS_429):
+                        return False
+                    time.sleep(ESPERAS_429[tentativa])
+    except Exception:
+        return False
+    return False
+
+
 def mesclado_pendente(codigo):
     """Dados mesclados com o que outra sessao gravou (uma unica vez), ou None."""
     with _TRAVA_FILA:

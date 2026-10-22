@@ -445,15 +445,40 @@ def _cb_impacto(gi):
     _autosave()
 
 
-def _adicionar_anexo(num, nome, dados):
+def _adicionar_anexos(num, arquivos):
+    """Envia os arquivos [(nome, bytes), ...] ao Drive e os registra no rascunho numa thread que NAO
+    e interrompida se a pessoa sair do app no meio (celular bloqueado, troca de app): nenhum anexo
+    fica orfao no Drive. Devolve True se ao menos um foi guardado."""
     sessao, pasta = sb.drive_para_evidencias()
-    try:
-        info = ev.guardar_evidencia(sessao, pasta, S.codigo, num, nome, dados)
-    except ev.EvidenciaErro as exc:
-        st.error(f"{nome}: {exc}")
-        return False
-    S.anexos.setdefault(num, []).append(info)
-    return True
+    codigo = S.codigo
+    saida = {"infos": [], "erros": []}
+
+    def tarefa():
+        for nome, dados in arquivos:
+            try:
+                info = ev.guardar_evidencia(sessao, pasta, codigo, num, nome, dados)
+                sb.registrar_anexo_rascunho(codigo, num, info)
+                saida["infos"].append(info)
+            except ev.EvidenciaErro as exc:
+                saida["erros"].append(f"{nome}: {exc}")
+            except Exception as exc:
+                saida["erros"].append(f"{nome}: falha ao guardar ({exc.__class__.__name__}). Tente novamente.")
+
+    t = threading.Thread(target=tarefa, daemon=True)
+    t.start()
+    t.join()
+    for erro in saida["erros"]:
+        st.error(erro)
+    lista = S.anexos.setdefault(num, [])
+    for info in saida["infos"]:
+        chave = sb._chave_anexo(info)
+        if not any(sb._chave_anexo(x) == chave for x in lista):
+            lista.append(info)
+    return bool(saida["infos"])
+
+
+def _adicionar_anexo(num, nome, dados):
+    return _adicionar_anexos(num, [(nome, dados)])
 
 
 def _bloco_observacao(item):
@@ -496,13 +521,11 @@ def _bloco_observacao(item):
                 key=f"up_{num}_{S.contador_up.get(num, 0)}",
                 help=f"JPG, PNG ou PDF. Até {sc.MAX_MB_PDF} MB por PDF; máx. {sc.MAX_ANEXOS_POR_ITEM} por item.")
             if arqs:
-                gravou = False
+                vagas = sc.MAX_ANEXOS_POR_ITEM - len(S.anexos.get(num, []))
+                if len(arqs) > vagas:
+                    st.warning("Limite de anexos atingido; arquivos excedentes foram ignorados.")
                 with st.spinner("Guardando arquivo(s)…"):
-                    for a in arqs:
-                        if len(S.anexos.get(num, [])) >= sc.MAX_ANEXOS_POR_ITEM:
-                            st.warning("Limite de anexos atingido; arquivos excedentes foram ignorados.")
-                            break
-                        gravou |= _adicionar_anexo(num, a.name, a.getvalue())
+                    gravou = _adicionar_anexos(num, [(x.name, x.getvalue()) for x in arqs[:max(vagas, 0)]])
                 S.contador_up[num] = S.contador_up.get(num, 0) + 1
                 if gravou:
                     _autosave()
