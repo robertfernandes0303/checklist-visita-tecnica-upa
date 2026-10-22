@@ -15,6 +15,7 @@ Correcoes em relacao ao modulo institucional (licoes do incidente de 30/09):
   - Verificacao de rascunho com 3 resultados (lista / vazio / ERRO).
 """
 import json
+import re
 from datetime import datetime
 import os
 import threading
@@ -408,10 +409,10 @@ def _juntar_anexo(dados, num, info):
     return True
 
 
-def registrar_anexo_rascunho(codigo, num, info):
-    """Grava o anexo DIRETO no rascunho guardado, sem depender da sessao do navegador.
-    Assim, se a pessoa fechar o app / bloquear o celular no meio do envio da foto, o anexo
-    nao fica orfao no Drive. Nunca lanca excecao; devolve True se gravou."""
+def registrar_anexos_lote(codigo, pares):
+    """Grava varios anexos [(num, info), ...] DIRETO no rascunho guardado, sem depender da sessao
+    do navegador, numa unica escrita. Nunca lanca excecao. Devolve quantos foram acrescentados
+    (0 se todos ja constavam/foram removidos) ou None se nao conseguiu gravar."""
     import time
     from gspread.utils import rowcol_to_a1
     try:
@@ -420,37 +421,93 @@ def registrar_anexo_rascunho(codigo, num, info):
             if not _usa_google(_carregar_mapeamento()):
                 caminho = _caminho_rascunho_local(codigo)
                 if not os.path.exists(caminho):
-                    return False
+                    return None
                 with open(caminho, encoding="utf-8") as f:
                     d = json.load(f)
-                _juntar_anexo(d["dados"], num, info)
-                d["atualizado_em"] = agora
-                with open(caminho, "w", encoding="utf-8") as f:
-                    json.dump(d, f, ensure_ascii=False)
-                return True
+                novos = sum(1 for n, i in pares if _juntar_anexo(d["dados"], n, i))
+                if novos:
+                    d["atualizado_em"] = agora
+                    with open(caminho, "w", encoding="utf-8") as f:
+                        json.dump(d, f, ensure_ascii=False)
+                return novos
             for tentativa in range(len(ESPERAS_429) + 1):
                 try:
                     aba = _aba_rascunho()
                     idx = _linha_do_codigo(aba, codigo)
                     if not idx:
-                        return False
+                        return None
                     cab = (aba.get(f"A{idx}:E{idx}") or [[]])[0] + [""] * 5
                     dados = _ler_dados_linha(aba, idx, codigo)
                     if not isinstance(dados, dict) or not dados:
-                        return False
-                    _juntar_anexo(dados, num, info)
-                    linha = _montar_linha(codigo, cab[1], cab[3], dados, agora)
-                    aba.update(f"A{idx}:{rowcol_to_a1(idx, len(linha))}", [linha], value_input_option=RAW)
-                    _CACHE_RASC["linhas"][codigo] = (idx, time.time())
-                    return True
+                        return None
+                    novos = sum(1 for n, i in pares if _juntar_anexo(dados, n, i))
+                    if novos:
+                        linha = _montar_linha(codigo, cab[1], cab[3], dados, agora)
+                        aba.update(f"A{idx}:{rowcol_to_a1(idx, len(linha))}", [linha], value_input_option=RAW)
+                        _CACHE_RASC["linhas"][codigo] = (idx, time.time())
+                    return novos
                 except Exception as exc:
                     _limpar_cache_rascunho()
                     if not _e_429(exc) or tentativa >= len(ESPERAS_429):
-                        return False
+                        return None
                     time.sleep(ESPERAS_429[tentativa])
     except Exception:
-        return False
-    return False
+        return None
+    return None
+
+
+def registrar_anexo_rascunho(codigo, num, info):
+    """Um anexo (ver registrar_anexos_lote). True se a gravacao funcionou."""
+    return registrar_anexos_lote(codigo, [(num, info)]) is not None
+
+
+_PADRAO_ITEM = re.compile(r"^item(\d{1,3})_", re.I)
+
+
+def recuperar_anexos_do_drive(codigo):
+    """Religa ao rascunho as fotos/PDFs que estao na pasta da visita no Drive mas nao constam no
+    rascunho (ex.: envio interrompido). O item vem do nome do arquivo (item{n}_...). Respeita os
+    anexos removidos de proposito. Retorna {'na_pasta','novos','pares':[(num,info)],'erro'}."""
+    from evidencias import EvidenciaErro, UploadAppsScript
+    saida = {"na_pasta": 0, "novos": 0, "pares": [], "erro": ""}
+    destino, _pasta = drive_para_evidencias()
+    if not isinstance(destino, UploadAppsScript):
+        saida["erro"] = "A recuperação precisa do serviço de upload do Drive (Apps Script) configurado."
+        return saida
+    try:
+        arquivos = destino.listar(codigo)
+    except EvidenciaErro as exc:
+        saida["erro"] = str(exc)
+        return saida
+    except Exception:
+        saida["erro"] = "Falha de conexão ao consultar o Drive. Tente novamente."
+        return saida
+    pares = []
+    for a in sorted(arquivos, key=lambda x: (x.get("criado") or "", x.get("nome") or "")):
+        m = _PADRAO_ITEM.match(a.get("nome") or "")
+        mime = a.get("mime") or ""
+        if not m or not (mime.startswith("image/") or mime == "application/pdf"):
+            continue
+        criado = a.get("criado") or ""
+        try:
+            from datetime import datetime, timezone, timedelta
+            dt = datetime.fromisoformat(criado.replace("Z", "+00:00")).astimezone(timezone(timedelta(hours=-3)))
+            enviado = dt.strftime("%d/%m/%Y %H:%M:%S")
+        except Exception:
+            enviado = ""
+        pares.append((int(m.group(1)), {
+            "nome": a["nome"], "tipo": "pdf" if mime == "application/pdf" else "imagem",
+            "tamanho_kb": round((a.get("tamanho") or 0) / 1024, 1), "enviado_em": enviado,
+            "link": a.get("link", ""), "id_arquivo": a.get("id", ""), "destino": "drive"}))
+    saida["na_pasta"] = len(pares)
+    if not pares:
+        return saida
+    novos = registrar_anexos_lote(codigo, pares)
+    if novos is None:
+        saida["erro"] = "Não foi possível gravar no rascunho agora. Tente novamente em instantes."
+        return saida
+    saida["novos"], saida["pares"] = novos, pares
+    return saida
 
 
 def mesclado_pendente(codigo):

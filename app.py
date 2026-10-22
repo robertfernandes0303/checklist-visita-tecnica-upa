@@ -399,6 +399,21 @@ def tela_menu():
             _autosave()
             st.rerun()
     st.divider()
+    with st.expander("Alguma foto anexada não aparece? Recuperar anexos"):
+        st.caption("Busca na pasta desta visita no Drive as fotos e PDFs enviados que não foram ligados aos itens "
+                   "e os religa ao item certo. Anexos que você removeu não voltam.")
+        if st.button("Recuperar anexos do Drive", key="recuperar_anexos", use_container_width=True):
+            with st.spinner("Consultando o Drive..."):
+                r = sb.recuperar_anexos_do_drive(S.codigo)
+            if r["erro"]:
+                st.error(r["erro"])
+            else:
+                dados = {"anexos": S.anexos, "anexos_removidos": S.anexos_removidos}
+                for num, info in r["pares"]:
+                    sb._juntar_anexo(dados, num, info)
+                S.anexos = {int(k): v for k, v in dados["anexos"].items()}
+                _autosave()
+                st.success(f"{r['na_pasta']} arquivo(s) na pasta do Drive; {r['novos']} religado(s) aos itens.")
     visiveis = [gi for gi, g in enumerate(sc.GRUPOS)
                 if not S.solo_essenciais or any(i["foco"] == sc.ESSENCIAL for i in g["itens"])]
     todos = all(gi in S.concluidos for gi in visiveis)

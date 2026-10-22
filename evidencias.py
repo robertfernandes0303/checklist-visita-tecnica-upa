@@ -120,6 +120,26 @@ class UploadAppsScript:
         return resp["link"], resp["id"]
 
 
+def _listar_apps_script(self, codigo):
+    """Arquivos da subpasta `codigo` (lista de dicts) ou levanta EvidenciaErro."""
+    import requests
+    payload = {"token": self.token, "acao": "listar", "pasta": codigo}
+    r = requests.post(self.url, data=json.dumps(payload), headers={"Content-Type": "text/plain;charset=utf-8"},
+                      timeout=120, allow_redirects=True)
+    try:
+        resp = r.json()
+    except Exception:
+        raise EvidenciaErro("O serviço do Drive não respondeu como esperado. Avise o administrador.")
+    if not resp.get("ok"):
+        raise EvidenciaErro("Não foi possível consultar a pasta no Drive: " + str(resp.get("erro", "erro desconhecido"))[:120])
+    if "arquivos" not in resp:
+        raise EvidenciaErro("O serviço do Drive ainda não suporta a consulta da pasta. Avise o administrador.")
+    return resp["arquivos"]
+
+
+UploadAppsScript.listar = _listar_apps_script
+
+
 def _traduzir_erro_http(resp):
     corpo = ""
     try:
