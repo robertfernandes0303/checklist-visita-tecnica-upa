@@ -129,7 +129,8 @@ def _listar_apps_script(self, codigo):
     try:
         resp = r.json()
     except Exception:
-        raise EvidenciaErro("O serviço do Drive não respondeu como esperado. Avise o administrador.")
+        trecho = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", r.text or ""))[:90]
+        raise EvidenciaErro(f"O serviço do Drive não respondeu como esperado (HTTP {r.status_code}: {trecho}). Avise o administrador.")
     if not resp.get("ok"):
         raise EvidenciaErro("Não foi possível consultar a pasta no Drive: " + str(resp.get("erro", "erro desconhecido"))[:120])
     if "arquivos" not in resp:
